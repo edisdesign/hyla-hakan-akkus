@@ -11,7 +11,7 @@ import { supabase, Lead, Testimonial, FaqItem, GalleryImage, PricingConfig } fro
 import { useAdmin } from '@/app/context/AdminContext';
 import { toast } from 'sonner';
 
-type Tab = 'galerija' | 'faq' | 'leadovi' | 'recenzije' | 'ergebnisse' | 'cover' | 'proizvodi' | 'podesavanja';
+type Tab = 'galerija' | 'faq' | 'leadovi' | 'recenzije' | 'ergebnisse' | 'cover' | 'proizvodi' | 'team' | 'podesavanja';
 
 // ─── LEADOVI TAB ─────────────────────────────────────────────────────────────
 function LeadoviTab() {
@@ -894,6 +894,84 @@ function PodesavanjaTab() {
     );
 }
 
+// ─── TEAM TAB ─────────────────────────────────────────────────────────────────
+function TeamTab() {
+    const [imageUrl, setImageUrl] = useState<string>('');
+    const [uploading, setUploading] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        supabase.from('site_settings').select('value').eq('key', 'team_image_url').single()
+            .then(({ data }) => { if (data?.value) setImageUrl(data.value); });
+    }, []);
+
+    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        const ext = file.name.split('.').pop();
+        const path = `team/team-photo.${ext}`;
+        const { error } = await supabase.storage.from('cover-images').upload(path, file, { upsert: true });
+        if (error) { toast.error('Upload fehlgeschlagen'); setUploading(false); return; }
+        const { data: { publicUrl } } = supabase.storage.from('cover-images').getPublicUrl(path);
+        const cacheBusted = `${publicUrl}?t=${Date.now()}`;
+        // Save to site_settings
+        await supabase.from('site_settings').upsert({ key: 'team_image_url', value: cacheBusted }, { onConflict: 'key' });
+        setImageUrl(cacheBusted);
+        toast.success('Team-Foto aktualisiert!');
+        setUploading(false);
+    };
+
+    const handleResetDefault = async () => {
+        setSaving(true);
+        await supabase.from('site_settings').delete().eq('key', 'team_image_url');
+        setImageUrl('');
+        toast.success('Standard-Foto wiederhergestellt');
+        setSaving(false);
+    };
+
+    return (
+        <div className="flex flex-col h-full overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                <p className="font-bold text-black text-[13px]">Team-Foto verwalten</p>
+                <p className="text-gray-500 text-[11px]">Ersetze das Foto in der Team-Sektion auf der Startseite</p>
+            </div>
+            <div className="p-6 space-y-6">
+                {/* Current preview */}
+                <div className="rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 aspect-video flex items-center justify-center">
+                    {imageUrl ? (
+                        <img src={imageUrl} alt="Team" className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="text-center text-gray-400">
+                            <ImageIcon size={32} className="mx-auto mb-2 opacity-30" />
+                            <p className="text-[12px]">Standard-Bild aktiv</p>
+                        </div>
+                    )}
+                </div>
+                {/* Upload */}
+                <label className={`flex items-center justify-center gap-2 w-full h-12 rounded-xl border-2 border-dashed border-gray-200 text-gray-500 text-[13px] font-bold cursor-pointer hover:border-black hover:text-black transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <Upload size={16} />
+                    {uploading ? 'Wird hochgeladen...' : 'Neues Foto hochladen'}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
+                </label>
+                {/* Reset */}
+                {imageUrl && (
+                    <button
+                        onClick={handleResetDefault}
+                        disabled={saving}
+                        className="w-full h-10 rounded-xl border border-red-100 text-red-500 text-[12px] font-bold hover:bg-red-50 transition-colors cursor-pointer"
+                    >
+                        {saving ? 'Wird zurückgesetzt...' : 'Standard-Foto wiederherstellen'}
+                    </button>
+                )}
+                <p className="text-[11px] text-gray-400 text-center">
+                    Das Bild wird sofort auf der Website sichtbar (nach Neuladung)
+                </p>
+            </div>
+        </div>
+    );
+}
+
 // ─── MAIN ADMIN PANEL ────────────────────────────────────────────────────────
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'galerija', label: 'Galerie', icon: <ImageIcon size={14} /> },
@@ -903,6 +981,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'ergebnisse', label: 'Ergebnisse', icon: <BarChart2 size={14} /> },
     { id: 'cover', label: 'Cover', icon: <Layout size={14} /> },
     { id: 'proizvodi', label: 'Produkte', icon: <Package size={14} /> },
+    { id: 'team', label: 'Team', icon: <ImageIcon size={14} /> },
     { id: 'podesavanja', label: 'Einstellungen', icon: <SlidersHorizontal size={14} /> },
 ];
 
@@ -966,6 +1045,7 @@ export function AdminPanel({ open, onClose }: AdminPanelProps) {
                             {activeTab === 'ergebnisse' && <ErgebnisseTab />}
                             {activeTab === 'cover' && <CoverTab />}
                             {activeTab === 'proizvodi' && <ProizvodiTab />}
+                            {activeTab === 'team' && <TeamTab />}
                             {activeTab === 'podesavanja' && <PodesavanjaTab />}
                         </div>
                     </motion.div>

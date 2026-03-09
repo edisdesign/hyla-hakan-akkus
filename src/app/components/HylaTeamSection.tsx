@@ -4,6 +4,8 @@ import { Button } from '@/app/components/ui/button';
 import { Users, MessageCircle, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { WHATSAPP_NUMBER } from '@/app/constants';
+import { supabase } from '@/app/lib/supabase';
+import { useState, useEffect } from 'react';
 
 interface HylaTeamSectionProps {
   language: Language;
@@ -12,6 +14,12 @@ interface HylaTeamSectionProps {
 export function HylaTeamSection({ language }: HylaTeamSectionProps) {
   const t = translations[language].team;
   const tCommon = translations[language].common;
+  const [customImage, setCustomImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.from('site_settings').select('value').eq('key', 'team_image_url').single()
+      .then(({ data }) => { if (data?.value) setCustomImage(data.value); });
+  }, []);
 
   const handleWhatsAppPartner = () => {
     const message = encodeURIComponent(t.whatsappMessage);
@@ -32,7 +40,7 @@ export function HylaTeamSection({ language }: HylaTeamSectionProps) {
           >
             <div className="relative rounded-[2rem] overflow-hidden">
               <img
-                src={teamImage}
+                src={customImage || teamImage}
                 alt="Team AKKUS"
                 className="w-full h-auto object-cover"
               />
@@ -62,7 +70,7 @@ export function HylaTeamSection({ language }: HylaTeamSectionProps) {
               <p>{t.description2}</p>
               <p>{t.description3}</p>
             </div>
-            
+
             {/* Stats */}
             <div className="grid grid-cols-2 gap-6 mt-10">
               <div className="bg-[#FAFAFA] p-6 rounded-2xl border border-gray-100">

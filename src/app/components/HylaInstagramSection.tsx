@@ -32,9 +32,8 @@ function CommentBubble({
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
       transition={{ delay: comment.delay + 0.6, duration: 0.7, ease: 'easeOut' }}
-      className={`absolute pointer-events-none z-20 max-w-[180px] md:max-w-[210px] ${
-        isLeft ? 'left-0' : 'right-0'
-      } hidden md:block`}
+      className={`absolute pointer-events-none z-20 max-w-[180px] md:max-w-[210px] ${isLeft ? 'left-0' : 'right-0'
+        } hidden md:block`}
       style={{ top: comment.top }}
     >
       <motion.div
@@ -45,9 +44,8 @@ function CommentBubble({
           ease: 'easeInOut',
           delay: index * 0.8,
         }}
-        className={`bg-white rounded-2xl shadow-xl border border-gray-100 p-3 ${
-          isLeft ? 'rounded-tl-sm' : 'rounded-tr-sm'
-        }`}
+        className={`bg-white rounded-2xl shadow-xl border border-gray-100 p-3 ${isLeft ? 'rounded-tl-sm' : 'rounded-tr-sm'
+          }`}
       >
         <div className="flex items-start gap-2">
           <div
@@ -65,9 +63,8 @@ function CommentBubble({
         </div>
         {/* Chat tail */}
         <div
-          className={`absolute top-4 w-3 h-3 bg-white rotate-45 border-gray-100 ${
-            isLeft ? '-left-1.5 border-l border-b' : '-right-1.5 border-r border-t'
-          }`}
+          className={`absolute top-4 w-3 h-3 bg-white rotate-45 border-gray-100 ${isLeft ? '-left-1.5 border-l border-b' : '-right-1.5 border-r border-t'
+            }`}
         />
       </motion.div>
     </motion.div>
@@ -108,14 +105,14 @@ export function HylaInstagramSection({ language }: HylaInstagramSectionProps) {
     offset: ['start end', 'center center'],
   });
 
-  // Smooth spring on scroll values
-  const smoothProgress = useSpring(scrollYProgress, { stiffness: 80, damping: 20 });
+  // Smooth spring — higher stiffness + damping = less bouncy, better on tablet
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 160, damping: 35 });
 
-  // Phone flies up from below + rotates into place + scales in
-  const phoneY      = useTransform(smoothProgress, [0, 1], [180, 0]);
-  const phoneRotate = useTransform(smoothProgress, [0, 1], [-18, -3]);
-  const phoneScale  = useTransform(smoothProgress, [0, 0.4, 1], [0.75, 0.9, 1]);
-  const phoneOpacity = useTransform(smoothProgress, [0, 0.25], [0, 1]);
+  // Phone flies up from below + rotates into place
+  const phoneY = useTransform(smoothProgress, [0, 1], [80, 0]);
+  const phoneRotate = useTransform(smoothProgress, [0, 1], [-12, -3]);
+  const phoneScale = useTransform(smoothProgress, [0, 0.4, 1], [0.85, 0.95, 1]);
+  const phoneOpacity = useTransform(smoothProgress, [0, 0.2], [0, 1]);
 
   return (
     <section ref={sectionRef} className="relative py-20 md:py-32 bg-[#F5F5F7] overflow-hidden">
@@ -205,8 +202,8 @@ export function HylaInstagramSection({ language }: HylaInstagramSectionProps) {
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-[85%] md:w-[320px]"
               >
                 <motion.div
-                  animate={{ y: [0, -10, 0] }}
-                  transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+                  animate={{ y: [0, -8, 0] }}
+                  transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
                   className="w-full"
                 >
                   {/* Phone shell — NO notch */}
