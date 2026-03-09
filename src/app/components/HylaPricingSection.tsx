@@ -27,22 +27,32 @@ export function HylaPricingSection({ language }: HylaPricingSectionProps) {
    const [loading, setLoading] = useState(true);
 
    useEffect(() => {
-      supabase
-         .from('pricing_config')
-         .select('*')
-         .order('id')
-         .then(({ data }) => {
-            if (!data) { setLoading(false); return; }
-            // Deduplicate by model
-            const seen = new Set<string>();
-            const deduped = data.filter((c: PricingConfig) => {
-               if (seen.has(c.model)) return false;
-               seen.add(c.model);
-               return true;
-            });
-            setProducts(deduped);
-            setLoading(false);
+      const load = async () => {
+         // Load products
+         const { data: raw } = await supabase.from('pricing_config').select('*').order('id');
+         if (!raw) { setLoading(false); return; }
+         const seen = new Set<string>();
+         const deduped = raw.filter((c: PricingConfig) => {
+            if (seen.has(c.model)) return false;
+            seen.add(c.model); return true;
          });
+         // Load toggle states from site_settings
+         const { data: tRow } = await supabase.from('site_settings').select('value').eq('key', 'product_toggles').single();
+         const toggleMap: Record<number, boolean> = tRow?.value ? JSON.parse(tRow.value) : {};
+         // Load action states from site_settings
+         const { data: aRow } = await supabase.from('site_settings').select('value').eq('key', 'product_actions').single();
+         const actionMap: Record<number, { label: string; extra: string }> = aRow?.value ? JSON.parse(aRow.value) : {};
+         // Merge into products
+         const merged = deduped.map((c: PricingConfig) => ({
+            ...c,
+            show_toggle: toggleMap[c.id] ?? false,
+            action_label: actionMap[c.id]?.label ?? c.action_label ?? '',
+            action_extra: actionMap[c.id]?.extra ?? c.action_extra ?? '',
+         }));
+         setProducts(merged);
+         setLoading(false);
+      };
+      load();
    }, []);
 
    const handleWhatsApp = (config: PricingConfig) => {
@@ -230,8 +240,8 @@ export function HylaPricingSection({ language }: HylaPricingSectionProps) {
                      <h3 className="text-2xl md:text-3xl font-bold tracking-tight">{config.title}</h3>
                      {config.badge && (
                         <span className={`text-xs font-bold px-3 py-1 rounded-full border ${isSteamer
-                              ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
-                              : 'bg-gray-200 text-gray-800 border-gray-200'
+                           ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                           : 'bg-gray-200 text-gray-800 border-gray-200'
                            }`}>{config.badge}</span>
                      )}
                   </div>
@@ -261,8 +271,8 @@ export function HylaPricingSection({ language }: HylaPricingSectionProps) {
                <Button
                   onClick={() => handleWhatsApp(config)}
                   className={`w-full h-14 rounded-full text-base font-bold hover:scale-[1.02] transition-all px-6 cursor-pointer ${isSteamer
-                        ? 'bg-orange-500 hover:bg-orange-400 text-white'
-                        : 'bg-black hover:bg-black/80 text-white'
+                     ? 'bg-orange-500 hover:bg-orange-400 text-white'
+                     : 'bg-black hover:bg-black/80 text-white'
                      }`}
                >
                   {config.cta_text || `Jetzt ${config.title} bestellen`}

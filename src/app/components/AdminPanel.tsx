@@ -774,36 +774,74 @@ const MODEL_COLORS: Record<string, string> = {
     steamer: 'bg-orange-400',
 };
 
+// Toggle state key in site_settings: product_toggles = JSON { [id]: true/false }
+const TOGGLE_KEY = 'product_toggles';
+// Action state key: product_actions = JSON { [id]: { label, extra } }
+const ACTION_KEY = 'product_actions';
+
 function ProizvodiTab() {
     const [configs, setConfigs] = useState<PricingConfig[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState<number | null>(null);
     const [adding, setAdding] = useState(false);
+    // toggle[id] = true/false — persisted in site_settings
+    const [toggles, setToggles] = useState<Record<number, boolean>>({});
+    // actions[id] = { label, extra } — persisted in site_settings
+    const [actions, setActions] = useState<Record<number, { label: string; extra: string }>>({});
 
-    const loadConfigs = useCallback(async () => {
+    const loadAll = useCallback(async () => {
         setLoading(true);
-        const { data } = await supabase.from('pricing_config').select('*').order('id');
+        // Load products
+        const { data: raw } = await supabase.from('pricing_config').select('*').order('id');
         const seen = new Set<string>();
-        const deduped = (data ?? []).filter((c: PricingConfig) => {
+        const deduped = (raw ?? []).filter((c: PricingConfig) => {
             if (seen.has(c.model)) return false;
-            seen.add(c.model);
-            return true;
+            seen.add(c.model); return true;
         });
         setConfigs(deduped);
+        // Load toggles from site_settings
+        const { data: tRow } = await supabase.from('site_settings').select('value').eq('key', TOGGLE_KEY).single();
+        if (tRow?.value) { try { setToggles(JSON.parse(tRow.value)); } catch { /* ignore */ } }
+        // Load actions from site_settings
+        const { data: aRow } = await supabase.from('site_settings').select('value').eq('key', ACTION_KEY).single();
+        if (aRow?.value) { try { setActions(JSON.parse(aRow.value)); } catch { /* ignore */ } }
         setLoading(false);
     }, []);
 
-    useEffect(() => { loadConfigs(); }, [loadConfigs]);
+    useEffect(() => { loadAll(); }, [loadAll]);
 
-    const update = (id: number, field: keyof PricingConfig, value: string | boolean) => {
+    // Persist toggles immediately on change
+    const toggleProduct = async (id: number) => {
+        const next = { ...toggles, [id]: !toggles[id] };
+        setToggles(next);
+        await supabase.from('site_settings').upsert({ key: TOGGLE_KEY, value: JSON.stringify(next) }, { onConflict: 'key' });
+    };
+
+    // Update action field immediately
+    const updateAction = async (id: number, field: 'label' | 'extra', value: string) => {
+        const next = { ...actions, [id]: { ...actions[id], [field]: value } };
+        setActions(next);
+        await supabase.from('site_settings').upsert({ key: ACTION_KEY, value: JSON.stringify(next) }, { onConflict: 'key' });
+    };
+
+    const updateField = (id: number, field: keyof PricingConfig, value: string) => {
         setConfigs(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
     };
 
     const saveAll = async () => {
         setSaving(true);
+        // Only update SAFE existing columns
         for (const config of configs) {
-            await supabase.from('pricing_config').update(config).eq('id', config.id);
+            await supabase.from('pricing_config').update({
+                title: config.title,
+                badge: config.badge,
+                financing_text: config.financing_text,
+                feature1: config.feature1,
+                feature2: config.feature2,
+                feature3: config.feature3,
+                cta_text: config.cta_text,
+            }).eq('id', config.id);
         }
         toast.success('Produkte gespeichert!');
         setSaving(false);
@@ -813,15 +851,19 @@ function ProizvodiTab() {
         if (!confirm('Produkt wirklich löschen?')) return;
         await supabase.from('pricing_config').delete().eq('id', id);
         setConfigs(prev => prev.filter(c => c.id !== id));
+        // Clean up settings
+        const newT = { ...toggles }; delete newT[id];
+        setToggles(newT);
+        await supabase.from('site_settings').upsert({ key: TOGGLE_KEY, value: JSON.stringify(newT) }, { onConflict: 'key' });
         toast.success('Produkt gelöscht');
     };
 
     const addProduct = async () => {
         if (configs.length >= 3) return;
         setAdding(true);
-        const newModel = `produkt_${Date.now()}`;
+        // Only insert SAFE existing columns
         const { data, error } = await supabase.from('pricing_config').insert({
-            model: newModel,
+            model: `produkt_${Date.now()}`,
             title: 'Neues Produkt',
             badge: 'NEU',
             financing_text: '',
@@ -829,12 +871,13 @@ function ProizvodiTab() {
             feature2: '',
             feature3: '',
             cta_text: 'Jetzt bestellen',
-            action_label: '',
-            action_extra: '',
-            image_url: '',
-            show_toggle: false,
         }).select().single();
-        if (!error && data) setConfigs(prev => [...prev, data]);
+        if (error) {
+            toast.error('Fehler beim Hinzufügen');
+            setAdding(false);
+            return;
+        }
+        if (data) setConfigs(prev => [...prev, data]);
         setAdding(false);
         toast.success('Produkt hinzugefügt');
     };
@@ -847,8 +890,10 @@ function ProizvodiTab() {
         if (error) { toast.error('Upload fehlgeschlagen'); setUploading(null); return; }
         const { data: { publicUrl } } = supabase.storage.from('cover-images').getPublicUrl(path);
         const url = `${publicUrl}?t=${Date.now()}`;
-        await supabase.from('pricing_config').update({ image_url: url }).eq('id', id);
-        update(id, 'image_url', url);
+        // Store image URL in site_settings as product_images
+        const imgKey = `product_image_${id}`;
+        await supabase.from('site_settings').upsert({ key: imgKey, value: url }, { onConflict: 'key' });
+        updateField(id, 'image_url', url);
         toast.success('Bild hochgeladen!');
         setUploading(null);
     };
@@ -867,7 +912,7 @@ function ProizvodiTab() {
                     <button onClick={addProduct} disabled={adding}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-[11px] font-bold rounded-full hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50">
                         <Plus size={12} />
-                        {adding ? '...' : 'Produkt hinzufügen'}
+                        {adding ? 'Wird erstellt...' : 'Produkt hinzufügen'}
                     </button>
                 )}
             </div>
@@ -880,97 +925,101 @@ function ProizvodiTab() {
                         <p className="text-sm">Keine Produkte. Füge bis zu 3 hinzu.</p>
                     </div>
                 )}
-                {configs.map((config, idx) => (
-                    <div key={config.id} className="border border-gray-200 rounded-2xl overflow-hidden">
-                        {/* Product Header */}
-                        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
-                            <div className="flex items-center gap-2">
-                                <div className={`w-3.5 h-3.5 rounded-full ${MODEL_COLORS[config.model] ?? 'bg-gray-400'}`} />
-                                <span className="font-bold text-[12px] uppercase tracking-wider">{config.title || `Produkt ${idx + 1}`}</span>
-                            </div>
-                            <button onClick={() => deleteConfig(config.id)}
-                                className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors cursor-pointer">
-                                <Trash2 size={13} />
-                            </button>
-                        </div>
-
-                        <div className="p-4 space-y-4">
-
-                            {/* Image Upload */}
-                            <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Produktbild</label>
-                                <div className="flex gap-3 items-center">
-                                    {config.image_url ? (
-                                        <img src={config.image_url} alt="" className="w-16 h-16 object-cover rounded-xl border border-gray-100" />
-                                    ) : (
-                                        <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center">
-                                            <ImageIcon size={20} className="text-gray-300" />
-                                        </div>
-                                    )}
-                                    <label className={`flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 text-[11px] font-bold cursor-pointer hover:border-black hover:text-black transition-colors ${uploading === config.id ? 'opacity-50 pointer-events-none' : ''}`}>
-                                        <Upload size={13} />
-                                        {uploading === config.id ? 'Hochladen...' : 'Bild hochladen'}
-                                        <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(config.id, f); }} />
-                                    </label>
+                {configs.map((config, idx) => {
+                    const tog = toggles[config.id] ?? false;
+                    const act = actions[config.id] ?? { label: '', extra: '' };
+                    return (
+                        <div key={config.id} className="border border-gray-200 rounded-2xl overflow-hidden">
+                            {/* Product Header */}
+                            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-3.5 h-3.5 rounded-full ${MODEL_COLORS[config.model] ?? 'bg-gray-400'}`} />
+                                    <span className="font-bold text-[12px] uppercase tracking-wider">{config.title || `Produkt ${idx + 1}`}</span>
                                 </div>
-                                <p className="text-[10px] text-gray-400 mt-1">Leer lassen = Standard HYLA Bild aus dem Design</p>
-                            </div>
-
-                            {/* Aktion Section */}
-                            <div className="bg-orange-50 rounded-xl p-3 space-y-2 border border-orange-100">
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-orange-500">🏷️ Aktion / Promotion</p>
-                                <div>
-                                    <label className="block text-[10px] text-gray-500 mb-1">Aktions-Label (z.B. NEU, Valentinstag Aktion)</label>
-                                    <input value={config.action_label ?? ''}
-                                        onChange={e => update(config.id, 'action_label', e.target.value)}
-                                        placeholder="z.B. Valentinstag Aktion"
-                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] text-gray-500 mb-1">Extra für diese Aktion (z.B. Gratis Luftreiniger dazu)</label>
-                                    <input value={config.action_extra ?? ''}
-                                        onChange={e => update(config.id, 'action_extra', e.target.value)}
-                                        placeholder="z.B. Gratis Luftreiniger dazu"
-                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400" />
-                                </div>
-                            </div>
-
-                            {/* Toggle Option */}
-                            <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-xl border border-gray-100">
-                                <div>
-                                    <p className="text-[11px] font-bold">Black/White Toggle</p>
-                                    <p className="text-[10px] text-gray-400">Zeigt einen Umschalter für zwei Varianten</p>
-                                </div>
-                                <button
-                                    onClick={() => update(config.id, 'show_toggle', !config.show_toggle)}
-                                    className={`relative w-10 h-6 rounded-full transition-colors cursor-pointer ${config.show_toggle ? 'bg-black' : 'bg-gray-200'}`}>
-                                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${config.show_toggle ? 'translate-x-4' : ''}`} />
+                                <button onClick={() => deleteConfig(config.id)}
+                                    className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors cursor-pointer">
+                                    <Trash2 size={13} />
                                 </button>
                             </div>
 
-                            {/* Standard Fields */}
-                            <div className="space-y-3">
-                                {[
-                                    { label: 'Titel', field: 'title' as const, placeholder: 'HYLA Black' },
-                                    { label: 'Badge', field: 'badge' as const, placeholder: 'BESTSELLER' },
-                                    { label: 'Finanzierungstext', field: 'financing_text' as const, placeholder: 'ab 39,00 € / Monat' },
-                                    { label: 'Feature 1', field: 'feature1' as const, placeholder: 'Premium Finish' },
-                                    { label: 'Feature 2', field: 'feature2' as const, placeholder: 'Komplettes Zubehör-Set' },
-                                    { label: 'Feature 3', field: 'feature3' as const, placeholder: 'Smart Water Technologie' },
-                                    { label: 'Button-Text', field: 'cta_text' as const, placeholder: 'Jetzt bestellen' },
-                                ].map(({ label, field, placeholder }) => (
-                                    <div key={field}>
-                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{label}</label>
-                                        <input value={String(config[field] ?? '')}
-                                            onChange={e => update(config.id, field, e.target.value)}
-                                            placeholder={placeholder}
-                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black" />
+                            <div className="p-4 space-y-4">
+
+                                {/* Image Upload */}
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Produktbild</label>
+                                    <div className="flex gap-3 items-center">
+                                        {config.image_url ? (
+                                            <img src={config.image_url} alt="" className="w-16 h-16 object-cover rounded-xl border border-gray-100" />
+                                        ) : (
+                                            <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center">
+                                                <ImageIcon size={20} className="text-gray-300" />
+                                            </div>
+                                        )}
+                                        <label className={`flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 text-[11px] font-bold cursor-pointer hover:border-black hover:text-black transition-colors ${uploading === config.id ? 'opacity-50 pointer-events-none' : ''}`}>
+                                            <Upload size={13} />
+                                            {uploading === config.id ? 'Hochladen...' : 'Bild hochladen'}
+                                            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(config.id, f); }} />
+                                        </label>
                                     </div>
-                                ))}
+                                    <p className="text-[10px] text-gray-400 mt-1">Leer = Standard HYLA Bild aus dem Design</p>
+                                </div>
+
+                                {/* Aktion Section */}
+                                <div className="bg-orange-50 rounded-xl p-3 space-y-2 border border-orange-100">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-orange-500">🏷️ Aktion / Promotion</p>
+                                    <div>
+                                        <label className="block text-[10px] text-gray-500 mb-1">Aktions-Label (z.B. NEU, Valentinstag Aktion)</label>
+                                        <input value={act.label}
+                                            onChange={e => updateAction(config.id, 'label', e.target.value)}
+                                            placeholder="z.B. Valentinstag Aktion"
+                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] text-gray-500 mb-1">Extra für diese Aktion</label>
+                                        <input value={act.extra}
+                                            onChange={e => updateAction(config.id, 'extra', e.target.value)}
+                                            placeholder="z.B. Gratis Luftreiniger dazu"
+                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400" />
+                                    </div>
+                                </div>
+
+                                {/* Toggle Option — persists immediately */}
+                                <div className="flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-xl border border-gray-100">
+                                    <div>
+                                        <p className="text-[11px] font-bold">Black/White Toggle</p>
+                                        <p className="text-[10px] text-gray-400">Zeigt Umschalter auf der Website</p>
+                                    </div>
+                                    <button
+                                        onClick={() => toggleProduct(config.id)}
+                                        className={`relative w-10 h-6 rounded-full transition-colors cursor-pointer ${tog ? 'bg-black' : 'bg-gray-200'}`}>
+                                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${tog ? 'translate-x-4' : ''}`} />
+                                    </button>
+                                </div>
+
+                                {/* Standard Fields */}
+                                <div className="space-y-3">
+                                    {[
+                                        { label: 'Titel', field: 'title' as const, placeholder: 'HYLA Black' },
+                                        { label: 'Badge', field: 'badge' as const, placeholder: 'BESTSELLER' },
+                                        { label: 'Finanzierungstext', field: 'financing_text' as const, placeholder: 'ab 39,00 € / Monat' },
+                                        { label: 'Feature 1', field: 'feature1' as const, placeholder: 'Premium Finish' },
+                                        { label: 'Feature 2', field: 'feature2' as const, placeholder: 'Komplettes Zubehör-Set' },
+                                        { label: 'Feature 3', field: 'feature3' as const, placeholder: 'Smart Water Technologie' },
+                                        { label: 'Button-Text', field: 'cta_text' as const, placeholder: 'Jetzt bestellen' },
+                                    ].map(({ label, field, placeholder }) => (
+                                        <div key={field}>
+                                            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{label}</label>
+                                            <input value={String(config[field] ?? '')}
+                                                onChange={e => updateField(config.id, field, e.target.value)}
+                                                placeholder={placeholder}
+                                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black" />
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Save Button */}
@@ -983,7 +1032,6 @@ function ProizvodiTab() {
         </div>
     );
 }
-
 
 // ─── PODEŠAVANJA TAB ─────────────────────────────────────────────────────────
 function PodesavanjaTab() {
