@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { translations, Language } from '@/app/translations';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Check, Flame, Droplets } from 'lucide-react';
 import { WHATSAPP_NUMBER } from '@/app/constants';
 import imgHylaBlack from "figma:asset/530f7de98967da95b9e6033bf208ed468548a1c6.png";
@@ -21,46 +21,79 @@ function isSteamerCard(model: string, title: string) {
 }
 
 // Try to get a default image for brand products
-function brandImage(model: string, title: string): string | undefined {
-   const s = (model + title).toLowerCase();
+function brandImage(title: string): string | undefined {
+   const s = title.toLowerCase();
    if (s.includes('white')) return imgHylaWhite;
    if (s.includes('black') || s.includes('hyla')) return imgHylaBlack;
    return undefined;
 }
 
+interface ProductVariant {
+   name: string;
+   title: string;
+   badge: string;
+   financing_text: string;
+   feature1: string;
+   feature2: string;
+   feature3: string;
+   cta_text: string;
+   image_url?: string;
+}
+
 export function HylaPricingSection({ language }: HylaPricingSectionProps) {
    const t = translations[language].pricing;
    const [products, setProducts] = useState<PricingConfig[]>([]);
-   // toggleState[id] = 'black' | 'white'
-   const [activeVariant, setActiveVariant] = useState<Record<number, 'black' | 'white'>>({});
+   const [variants, setVariants] = useState<Record<number, ProductVariant>>({});
+   const [actions, setActions] = useState<Record<number, { label: string; extra: string }>>({});
+   const [images, setImages] = useState<Record<number, string>>({});
+   // Which version is active? 'main' or 'variant'
+   const [activeView, setActiveView] = useState<Record<number, 'main' | 'variant'>>({});
    const [loading, setLoading] = useState(true);
 
    useEffect(() => {
-      supabase
-         .from('pricing_config')
-         .select('*')
-         .order('id')
-         .then(({ data }) => {
-            if (!data) { setLoading(false); return; }
-            // Deduplicate by model name
-            const seen = new Set<string>();
-            const deduped = (data as PricingConfig[]).filter(c => {
-               if (seen.has(c.model)) return false;
-               seen.add(c.model);
-               return true;
-            });
-            setProducts(deduped);
-            setLoading(false);
+      const load = async () => {
+         const { data: raw } = await supabase.from('pricing_config').select('*').order('id');
+         if (!raw) { setLoading(false); return; }
+         const seen = new Set<string>();
+         const deduped = (raw as PricingConfig[]).filter(c => {
+            if (seen.has(c.model)) return false;
+            seen.add(c.model);
+            return true;
          });
+         setProducts(deduped);
+
+         // Load ALL site_settings to get variants, actions, and overriding main images
+         const { data: settings } = await supabase.from('site_settings').select('key, value');
+         const varMap: Record<number, ProductVariant> = {};
+         const actMap: Record<number, { label: string; extra: string }> = {};
+         const imgMap: Record<number, string> = {};
+
+         if (settings) {
+            settings.forEach((row: { key: string; value: string }) => {
+               if (row.key.startsWith('product_variant_')) {
+                  const id = parseInt(row.key.replace('product_variant_', ''));
+                  try { varMap[id] = JSON.parse(row.value); } catch { /* ignore */ }
+               }
+               if (row.key === 'product_actions') {
+                  try { Object.assign(actMap, JSON.parse(row.value)); } catch { /* ignore */ }
+               }
+               if (row.key.startsWith('product_image_')) {
+                  const id = parseInt(row.key.replace('product_image_', ''));
+                  imgMap[id] = row.value;
+               }
+            });
+         }
+         setVariants(varMap);
+         setActions(actMap);
+         setImages(imgMap);
+         setLoading(false);
+      };
+      load();
    }, []);
 
-   const handleWhatsApp = (config: PricingConfig) => {
-      const waText = `Hallo! Ich interessiere mich für: ${config.title}.`;
-      const txt =
-         config.model === 'black' ? (t?.whatsappBlack || waText) :
-            config.model === 'white' ? (t?.whatsappWhite || waText) :
-               waText;
-      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(txt)}`, '_blank');
+   const handleWhatsApp = (title: string) => {
+      const waText = t?.whatsappBlack ? t.whatsappBlack.replace('HYLA Black', title) : `Hallo! Ich interessiere mich für: ${title}.`;
+      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`, '_blank');
    };
 
    if (loading) {
@@ -90,16 +123,28 @@ export function HylaPricingSection({ language }: HylaPricingSectionProps) {
                   {t?.title || 'Unsere Angebote'}
                </motion.h2>
                <p className="text-xl text-gray-500">
-                  {t?.chooseAesthetic || 'Wählen Sie Ihr Modell. Professionelle Qualität.'}
+                  {t?.chooseAesthetic || 'Entdecken Sie unsere Produkte. Professionelle Qualität.'}
                </p>
             </div>
 
             {/* Cards */}
             <div className={`grid gap-8 ${products.length === 1 ? 'max-w-xl mx-auto' :
-                  products.length === 2 ? 'md:grid-cols-2' :
-                     'md:grid-cols-2 lg:grid-cols-3'
+               products.length === 2 ? 'md:grid-cols-2' :
+                  'md:grid-cols-2 lg:grid-cols-3'
                }`}>
                {products.map((config, idx) => {
+                  const act = actions[config.id];
+                  const hasAction = act && act.label !== '';
+                  const variant = variants[config.id];
+                  const hasVariant = !!variant;
+                  const view = activeView[config.id] ?? 'main';
+
+                  // Select current data based on view
+                  const currentData = view === 'variant' && variant ? variant : config;
+                  // Main image logic: check images[id] overriding from site_settings, then original config.image_url, then fallback brand
+                  const mainImageURL = images[config.id] || config.image_url || brandImage(config.title) || imgHylaBlack;
+                  const currentImg = view === 'variant' && variant ? (variant.image_url || brandImage(variant.title) || imgHylaWhite) : mainImageURL;
+
                   // ── STEAMER CARD ──
                   if (isSteamerCard(config.model, config.title)) {
                      return (
@@ -112,8 +157,8 @@ export function HylaPricingSection({ language }: HylaPricingSectionProps) {
                            className="group relative bg-[#0a0a0a] rounded-[3rem] overflow-hidden flex flex-col border border-white/10 hover:shadow-2xl transition-all duration-500"
                         >
                            <div className="relative h-[380px] overflow-hidden">
-                              {config.image_url ? (
-                                 <img src={config.image_url} alt={config.title}
+                              {mainImageURL && mainImageURL !== imgHylaBlack ? (
+                                 <img src={mainImageURL} alt={config.title}
                                     className="w-full h-full object-cover opacity-50 group-hover:opacity-70 group-hover:scale-105 transition-all duration-500" />
                               ) : (
                                  <>
@@ -127,11 +172,17 @@ export function HylaPricingSection({ language }: HylaPricingSectionProps) {
                                  </>
                               )}
                               <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/30 to-transparent" />
-                              {config.badge && (
+                              {hasAction && (
+                                 <div className="absolute top-0 inset-x-0 bg-gradient-to-r from-orange-600 to-orange-400 text-white py-2 px-6 shadow-lg z-40 transform origin-top hover:scale-y-105 transition-transform flex items-center justify-between pointer-events-none">
+                                    <span className="text-[11px] font-black uppercase tracking-widest">{act.label}</span>
+                                    {act.extra && <span className="text-[10px] font-bold opacity-90">{act.extra}</span>}
+                                 </div>
+                              )}
+                              {config.badge && !hasAction && (
                                  <div className="absolute top-6 left-6 bg-orange-500 text-white text-[10px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full">{config.badge}</div>
                               )}
                            </div>
-                           <div className="p-8 pt-6 flex-1 flex flex-col justify-between text-white">
+                           <div className="p-8 pt-6 flex-1 flex flex-col justify-between text-white relative z-10">
                               <div>
                                  <h3 className="text-2xl md:text-3xl font-bold tracking-tight mb-4">{config.title}</h3>
                                  {config.financing_text && (
@@ -151,7 +202,7 @@ export function HylaPricingSection({ language }: HylaPricingSectionProps) {
                                     ))}
                                  </ul>
                               </div>
-                              <Button onClick={() => handleWhatsApp(config)}
+                              <Button onClick={() => handleWhatsApp(config.title)}
                                  className="w-full h-14 rounded-full bg-orange-500 hover:bg-orange-400 text-white text-base font-bold hover:scale-[1.02] transition-all cursor-pointer">
                                  {config.cta_text || 'Vorführung buchen'}
                               </Button>
@@ -160,12 +211,8 @@ export function HylaPricingSection({ language }: HylaPricingSectionProps) {
                      );
                   }
 
-                  // ── STANDARD CARD — toggle only when show_toggle=true ──
-                  // show_toggle comes from DB column (set via SQL, or from admin toggle)
-                  const showToggle = !!(config as PricingConfig & { show_toggle?: boolean }).show_toggle;
-                  const variant = activeVariant[config.id] ?? 'black';
-                  const isWhite = showToggle && variant === 'white';
-                  const img = config.image_url || brandImage(config.model, config.title) || imgHylaBlack;
+                  // ── STANDARD CARD — switch between main and variant if exists ──
+                  const isVariantView = view === 'variant';
 
                   return (
                      <motion.div
@@ -176,78 +223,97 @@ export function HylaPricingSection({ language }: HylaPricingSectionProps) {
                         transition={{ delay: idx * 0.12 }}
                         className="group relative bg-[#F5F5F7] rounded-[3rem] overflow-hidden flex flex-col border border-gray-100 hover:border-gray-200 hover:shadow-2xl transition-all duration-500"
                      >
-                        {/* Toggle */}
-                        {showToggle && (
-                           <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full p-1 border border-gray-100 shadow-sm">
+                        {/* Action Banner */}
+                        {hasAction && (
+                           <div className="absolute top-0 inset-x-0 bg-gradient-to-r from-orange-500 to-orange-400 text-white py-2 px-6 shadow-lg z-40 transform origin-top hover:scale-y-105 transition-transform flex items-center justify-between pointer-events-none">
+                              <span className="text-[11px] font-black uppercase tracking-widest">{act.label}</span>
+                              {act.extra && <span className="text-[10px] font-bold opacity-90">{act.extra}</span>}
+                           </div>
+                        )}
+
+                        {/* Switcher (if variant exists) */}
+                        {hasVariant && (
+                           <div className={`absolute left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full p-1 border shadow-sm transition-all duration-300 ${hasAction ? 'top-12 border-orange-100' : 'top-6 border-gray-100'}`}>
                               <button
-                                 onClick={() => setActiveVariant(p => ({ ...p, [config.id]: 'black' }))}
-                                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${variant === 'black' ? 'bg-black text-white shadow-sm' : 'text-gray-400 hover:text-gray-700'}`}
+                                 onClick={() => setActiveView(p => ({ ...p, [config.id]: 'main' }))}
+                                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${!isVariantView ? 'bg-black text-white shadow-sm' : 'text-gray-400 hover:text-gray-700'}`}
                               >
-                                 <span className="w-2.5 h-2.5 rounded-full bg-current inline-block" />Black
+                                 Original
                               </button>
                               <button
-                                 onClick={() => setActiveVariant(p => ({ ...p, [config.id]: 'white' }))}
-                                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${variant === 'white' ? 'bg-gray-100 text-black shadow-sm border border-gray-200' : 'text-gray-400 hover:text-gray-700'}`}
+                                 onClick={() => setActiveView(p => ({ ...p, [config.id]: 'variant' }))}
+                                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer ${isVariantView ? 'bg-gray-100 text-black shadow-sm border border-gray-200' : 'text-gray-400 hover:text-gray-700'}`}
                               >
-                                 <span className="w-2.5 h-2.5 rounded-full bg-gray-300 border border-gray-400 inline-block" />White
+                                 {variant.name || 'Variante'}
                               </button>
                            </div>
                         )}
 
                         {/* Image */}
-                        <div className="relative h-[380px] flex items-center justify-center p-10 overflow-hidden">
+                        <div className={`relative h-[380px] flex items-center justify-center p-10 overflow-hidden ${hasAction ? 'mt-4' : ''}`}>
                            <div className="absolute inset-0 bg-white" />
                            <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:20px_20px] opacity-50" />
-                           <motion.img
-                              key={`${config.id}-${variant}`}
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ duration: 0.35 }}
-                              src={isWhite ? imgHylaWhite : img}
-                              alt={config.title}
-                              className="relative z-10 object-contain drop-shadow-2xl group-hover:scale-110 group-hover:-rotate-2 transition-transform duration-700"
-                              style={{ maxHeight: '280px', height: '280px' }}
-                           />
+                           <AnimatePresence mode="wait">
+                              <motion.img
+                                 key={`${config.id}-${view}`}
+                                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                 animate={{ opacity: 1, scale: 1, y: 0 }}
+                                 exit={{ opacity: 0, scale: 1.05, y: -10 }}
+                                 transition={{ duration: 0.35, ease: "easeOut" }}
+                                 src={currentImg}
+                                 alt={currentData.title}
+                                 className="relative z-10 object-contain drop-shadow-2xl group-hover:scale-110 group-hover:-rotate-2 transition-transform duration-700"
+                                 style={{ maxHeight: '280px', height: '280px' }}
+                              />
+                           </AnimatePresence>
                         </div>
 
                         {/* Content */}
-                        <div className="p-8 pt-6 flex-1 flex flex-col justify-between">
-                           <div>
-                              <div className="flex justify-between items-start mb-4">
-                                 <div className="flex items-center gap-3">
-                                    <Droplets className="size-5 text-gray-400" />
-                                    <h3 className="text-2xl md:text-3xl font-bold tracking-tight">
-                                       {showToggle && isWhite ? config.title.replace(/black/i, 'White Edition') : config.title}
-                                    </h3>
-                                 </div>
-                                 {config.badge && (
-                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${isWhite ? 'bg-gray-200 text-gray-800' : 'bg-black text-white'}`}>
-                                       {config.badge}
-                                    </span>
-                                 )}
-                              </div>
-                              {config.financing_text && (
-                                 <div className="flex items-center gap-2 mb-6 opacity-60">
-                                    <div className="h-px w-8 bg-current" />
-                                    <p className="text-sm font-bold uppercase tracking-wider">{config.financing_text}</p>
-                                 </div>
-                              )}
-                              <ul className="space-y-3 mb-8">
-                                 {[config.feature1, config.feature2, config.feature3].filter(Boolean).map((f, i) => (
-                                    <li key={i} className="flex items-center gap-3">
-                                       <span className="flex items-center justify-center size-6 rounded-full bg-black/5">
-                                          <Check className="size-3.5" />
+                        <div className="p-8 pt-6 flex-1 flex flex-col justify-between relative z-10">
+                           <AnimatePresence mode="wait">
+                              <motion.div
+                                 key={`${config.id}-${view}-content`}
+                                 initial={{ opacity: 0, x: -10 }}
+                                 animate={{ opacity: 1, x: 0 }}
+                                 exit={{ opacity: 0, x: 10 }}
+                                 transition={{ duration: 0.2 }}
+                              >
+                                 <div className="flex justify-between items-start mb-4">
+                                    <div className="flex items-center gap-3">
+                                       <Droplets className="size-5 text-gray-400" />
+                                       <h3 className="text-2xl md:text-3xl font-bold tracking-tight">
+                                          {currentData.title}
+                                       </h3>
+                                    </div>
+                                    {currentData.badge && !hasAction && (
+                                       <span className={`text-xs font-bold px-3 py-1 rounded-full ${isVariantView ? 'bg-gray-200 text-gray-800' : 'bg-black text-white'}`}>
+                                          {currentData.badge}
                                        </span>
-                                       <span className="text-base font-medium">{f}</span>
-                                    </li>
-                                 ))}
-                              </ul>
-                           </div>
+                                    )}
+                                 </div>
+                                 {currentData.financing_text && (
+                                    <div className="flex items-center gap-2 mb-6 opacity-60">
+                                       <div className="h-px w-8 bg-current" />
+                                       <p className="text-sm font-bold uppercase tracking-wider">{currentData.financing_text}</p>
+                                    </div>
+                                 )}
+                                 <ul className="space-y-3 mb-8">
+                                    {[currentData.feature1, currentData.feature2, currentData.feature3].filter(Boolean).map((f, i) => (
+                                       <li key={i} className="flex items-center gap-3">
+                                          <span className="flex items-center justify-center size-6 rounded-full bg-black/5">
+                                             <Check className="size-3.5" />
+                                          </span>
+                                          <span className="text-base font-medium">{f}</span>
+                                       </li>
+                                    ))}
+                                 </ul>
+                              </motion.div>
+                           </AnimatePresence>
                            <Button
-                              onClick={() => handleWhatsApp(config)}
-                              className="w-full h-14 rounded-full bg-black text-white text-base font-bold hover:bg-black/80 hover:scale-[1.02] transition-all cursor-pointer"
+                              onClick={() => handleWhatsApp(currentData.title)}
+                              className="w-full h-14 rounded-full bg-black text-white text-base font-bold hover:bg-black/80 hover:scale-[1.02] transition-all cursor-pointer mt-auto"
                            >
-                              {config.cta_text || `Jetzt ${config.title} bestellen`}
+                              {currentData.cta_text || `Jetzt bestellen`}
                            </Button>
                         </div>
                      </motion.div>

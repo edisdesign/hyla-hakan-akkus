@@ -768,16 +768,62 @@ function CoverTab() {
 }
 
 // ─── PROIZVODI TAB ───────────────────────────────────────────────────────────
-const MODEL_COLORS: Record<string, string> = {
-    black: 'bg-black',
-    white: 'bg-gray-200 border border-gray-300',
-    steamer: 'bg-orange-400',
-};
+interface ProductVariant {
+    name: string;
+    title: string;
+    badge: string;
+    financing_text: string;
+    feature1: string;
+    feature2: string;
+    feature3: string;
+    cta_text: string;
+    image_url?: string;
+}
 
-// Toggle state key in site_settings: product_toggles = JSON { [id]: true/false }
-const TOGGLE_KEY = 'product_toggles';
-// Action state key: product_actions = JSON { [id]: { label, extra } }
-const ACTION_KEY = 'product_actions';
+// variants[id] = { name, title, ... } stored in site_settings as "product_variant_{id}"
+// Saves a variant to site_settings
+async function saveVariantToDb(id: number, variant: ProductVariant | null) {
+    const key = `product_variant_${id}`;
+    if (variant === null) {
+        await supabase.from('site_settings').delete().eq('key', key);
+    } else {
+        await supabase.from('site_settings').upsert({ key, value: JSON.stringify(variant) }, { onConflict: 'key' });
+    }
+}
+
+const EMPTY_VARIANT: ProductVariant = { name: '', title: '', badge: '', financing_text: '', feature1: '', feature2: '', feature3: '', cta_text: '' };
+
+function ProductFields({ label, values, onChange }: {
+    label?: string;
+    values: Partial<ProductVariant & { action_label?: string; action_extra?: string }>;
+    onChange: (field: string, value: string) => void;
+}) {
+    const fields = [
+        { label: 'Titel', field: 'title', placeholder: 'z.B. HYLA Black' },
+        { label: 'Badge', field: 'badge', placeholder: 'z.B. BESTSELLER' },
+        { label: 'Finanzierungstext', field: 'financing_text', placeholder: 'ab 39€ / Monat' },
+        { label: 'Feature 1', field: 'feature1', placeholder: 'Premium Finish' },
+        { label: 'Feature 2', field: 'feature2', placeholder: 'Komplettes Zubehör-Set' },
+        { label: 'Feature 3', field: 'feature3', placeholder: 'Smart Water Technologie' },
+        { label: 'Button-Text', field: 'cta_text', placeholder: 'Jetzt bestellen' },
+    ];
+    return (
+        <div className="space-y-3">
+            {label && <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 pt-1">{label}</p>}
+            {fields.map(({ label: l, field, placeholder }) => (
+                <div key={field}>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{l}</label>
+                    <input
+                        value={String((values as Record<string, string>)[field] ?? '')}
+                        onChange={e => onChange(field, e.target.value)}
+                        placeholder={placeholder}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
+                    />
+                </div>
+            ))}
+        </div>
+    );
+}
 
 function ProizvodiTab() {
     const [configs, setConfigs] = useState<PricingConfig[]>([]);
@@ -785,63 +831,86 @@ function ProizvodiTab() {
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState<number | null>(null);
     const [adding, setAdding] = useState(false);
-    // toggle[id] = true/false — persisted in site_settings
-    const [toggles, setToggles] = useState<Record<number, boolean>>({});
-    // actions[id] = { label, extra } — persisted in site_settings
+    // variants[id] = ProductVariant | null
+    const [variants, setVariants] = useState<Record<number, ProductVariant | null>>({});
+    // expanded[id] = show variant form?
+    const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+    // actions (stored in site_settings)
     const [actions, setActions] = useState<Record<number, { label: string; extra: string }>>({});
 
     const loadAll = useCallback(async () => {
         setLoading(true);
-        // Load products
         const { data: raw } = await supabase.from('pricing_config').select('*').order('id');
         const seen = new Set<string>();
         const deduped = (raw ?? []).filter((c: PricingConfig) => {
-            if (seen.has(c.model)) return false;
-            seen.add(c.model); return true;
+            if (seen.has(c.model)) return false; seen.add(c.model); return true;
         });
         setConfigs(deduped);
-        // Load toggles from site_settings
-        const { data: tRow } = await supabase.from('site_settings').select('value').eq('key', TOGGLE_KEY).single();
-        if (tRow?.value) { try { setToggles(JSON.parse(tRow.value)); } catch { /* ignore */ } }
-        // Load actions from site_settings
-        const { data: aRow } = await supabase.from('site_settings').select('value').eq('key', ACTION_KEY).single();
-        if (aRow?.value) { try { setActions(JSON.parse(aRow.value)); } catch { /* ignore */ } }
+
+        // Load variants and actions from site_settings
+        const { data: settings } = await supabase.from('site_settings').select('key, value');
+        const varMap: Record<number, ProductVariant | null> = {};
+        const actMap: Record<number, { label: string; extra: string }> = {};
+        const expMap: Record<number, boolean> = {};
+        (settings ?? []).forEach((row: { key: string; value: string }) => {
+            if (row.key.startsWith('product_variant_')) {
+                const id = parseInt(row.key.replace('product_variant_', ''));
+                try { varMap[id] = JSON.parse(row.value); expMap[id] = true; } catch { /* ignore */ }
+            }
+            if (row.key === 'product_actions') {
+                try { Object.assign(actMap, JSON.parse(row.value)); } catch { /* ignore */ }
+            }
+        });
+        setVariants(varMap);
+        setExpanded(expMap);
+        setActions(actMap);
         setLoading(false);
     }, []);
 
     useEffect(() => { loadAll(); }, [loadAll]);
 
-    // Persist toggles immediately on change
-    const toggleProduct = async (id: number) => {
-        const next = { ...toggles, [id]: !toggles[id] };
-        setToggles(next);
-        await supabase.from('site_settings').upsert({ key: TOGGLE_KEY, value: JSON.stringify(next) }, { onConflict: 'key' });
-    };
-
-    // Update action field immediately
-    const updateAction = async (id: number, field: 'label' | 'extra', value: string) => {
-        const next = { ...actions, [id]: { ...actions[id], [field]: value } };
-        setActions(next);
-        await supabase.from('site_settings').upsert({ key: ACTION_KEY, value: JSON.stringify(next) }, { onConflict: 'key' });
-    };
-
     const updateField = (id: number, field: keyof PricingConfig, value: string) => {
         setConfigs(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
     };
 
+    const updateVariant = (id: number, field: string, value: string) => {
+        setVariants(prev => ({
+            ...prev,
+            [id]: { ...(prev[id] ?? EMPTY_VARIANT), [field]: value }
+        }));
+    };
+
+    const updateAction = async (id: number, field: 'label' | 'extra', value: string) => {
+        const next = { ...actions, [id]: { ...actions[id], [field]: value } };
+        setActions(next);
+        await supabase.from('site_settings').upsert({ key: 'product_actions', value: JSON.stringify(next) }, { onConflict: 'key' });
+    };
+
+    const addVariant = (id: number) => {
+        setVariants(prev => ({ ...prev, [id]: EMPTY_VARIANT }));
+        setExpanded(prev => ({ ...prev, [id]: true }));
+    };
+
+    const removeVariant = async (id: number) => {
+        setVariants(prev => { const n = { ...prev }; delete n[id]; return n; });
+        setExpanded(prev => ({ ...prev, [id]: false }));
+        await saveVariantToDb(id, null);
+    };
+
     const saveAll = async () => {
         setSaving(true);
-        // Only update SAFE existing columns
+        // Save main product fields
         for (const config of configs) {
             await supabase.from('pricing_config').update({
-                title: config.title,
-                badge: config.badge,
+                title: config.title, badge: config.badge,
                 financing_text: config.financing_text,
-                feature1: config.feature1,
-                feature2: config.feature2,
-                feature3: config.feature3,
+                feature1: config.feature1, feature2: config.feature2, feature3: config.feature3,
                 cta_text: config.cta_text,
             }).eq('id', config.id);
+        }
+        // Save variants
+        for (const [idStr, variant] of Object.entries(variants)) {
+            await saveVariantToDb(parseInt(idStr), variant);
         }
         toast.success('Produkte gespeichert!');
         setSaving(false);
@@ -850,55 +919,48 @@ function ProizvodiTab() {
     const deleteConfig = async (id: number) => {
         if (!confirm('Produkt wirklich löschen?')) return;
         await supabase.from('pricing_config').delete().eq('id', id);
+        await saveVariantToDb(id, null);
         setConfigs(prev => prev.filter(c => c.id !== id));
-        // Clean up settings
-        const newT = { ...toggles }; delete newT[id];
-        setToggles(newT);
-        await supabase.from('site_settings').upsert({ key: TOGGLE_KEY, value: JSON.stringify(newT) }, { onConflict: 'key' });
+        setVariants(prev => { const n = { ...prev }; delete n[id]; return n; });
         toast.success('Produkt gelöscht');
     };
 
     const addProduct = async () => {
         if (configs.length >= 3) return;
         setAdding(true);
-        // Only insert SAFE existing columns
         const { data, error } = await supabase.from('pricing_config').insert({
             model: `produkt_${Date.now()}`,
-            title: 'Neues Produkt',
-            badge: 'NEU',
-            financing_text: '',
-            feature1: '',
-            feature2: '',
-            feature3: '',
-            cta_text: 'Jetzt bestellen',
+            title: 'Neues Produkt', badge: 'NEU',
+            financing_text: '', feature1: '', feature2: '', feature3: '', cta_text: 'Jetzt bestellen',
         }).select().single();
-        if (error) {
-            toast.error('Fehler beim Hinzufügen');
-            setAdding(false);
-            return;
-        }
+        if (error) { toast.error(`Fehler: ${error.message}`); setAdding(false); return; }
         if (data) setConfigs(prev => [...prev, data]);
         setAdding(false);
         toast.success('Produkt hinzugefügt');
     };
 
-    const uploadImage = async (id: number, file: File) => {
+    const uploadImage = async (id: number, file: File, forVariant = false) => {
         setUploading(id);
         const ext = file.name.split('.').pop();
-        const path = `products/${id}-${Date.now()}.${ext}`;
+        const path = `products/${id}-${forVariant ? 'v' : ''}-${Date.now()}.${ext}`;
         const { error } = await supabase.storage.from('cover-images').upload(path, file, { upsert: true });
         if (error) { toast.error('Upload fehlgeschlagen'); setUploading(null); return; }
         const { data: { publicUrl } } = supabase.storage.from('cover-images').getPublicUrl(path);
         const url = `${publicUrl}?t=${Date.now()}`;
-        // Store image URL in site_settings as product_images
-        const imgKey = `product_image_${id}`;
-        await supabase.from('site_settings').upsert({ key: imgKey, value: url }, { onConflict: 'key' });
-        updateField(id, 'image_url', url);
+        if (forVariant) {
+            updateVariant(id, 'image_url', url);
+            // Persist immediately
+            const updatedVariant = { ...(variants[id] ?? EMPTY_VARIANT), image_url: url };
+            await saveVariantToDb(id, updatedVariant);
+        } else {
+            await supabase.from('site_settings').upsert({ key: `product_image_${id}`, value: url }, { onConflict: 'key' });
+            updateField(id, 'image_url', url);
+        }
         toast.success('Bild hochgeladen!');
         setUploading(null);
     };
 
-    if (loading) return <div className="p-6 space-y-4">{[...Array(2)].map((_, i) => <div key={i} className="h-48 bg-gray-100 animate-pulse rounded-xl" />)}</div>;
+    if (loading) return <div className="p-6 space-y-4">{[...Array(2)].map((_, i) => <div key={i} className="h-40 bg-gray-100 animate-pulse rounded-xl" />)}</div>;
 
     return (
         <div className="flex flex-col h-full">
@@ -911,14 +973,13 @@ function ProizvodiTab() {
                 {configs.length < 3 && (
                     <button onClick={addProduct} disabled={adding}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-black text-white text-[11px] font-bold rounded-full hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50">
-                        <Plus size={12} />
-                        {adding ? 'Wird erstellt...' : 'Produkt hinzufügen'}
+                        <Plus size={12} />{adding ? 'Wird erstellt...' : 'Produkt hinzufügen'}
                     </button>
                 )}
             </div>
 
             {/* Product Cards */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+            <div className="flex-1 overflow-y-auto p-5 space-y-6">
                 {configs.length === 0 && (
                     <div className="text-center py-10 text-gray-400">
                         <Package size={32} className="mx-auto mb-2 opacity-30" />
@@ -926,16 +987,16 @@ function ProizvodiTab() {
                     </div>
                 )}
                 {configs.map((config, idx) => {
-                    const tog = toggles[config.id] ?? false;
                     const act = actions[config.id] ?? { label: '', extra: '' };
+                    const variant = variants[config.id];
+                    const hasVariant = !!variant;
+                    const showVariantForm = expanded[config.id];
+
                     return (
                         <div key={config.id} className="border border-gray-200 rounded-2xl overflow-hidden">
-                            {/* Product Header */}
+                            {/* Card Header */}
                             <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
-                                <div className="flex items-center gap-2">
-                                    <div className={`w-3.5 h-3.5 rounded-full ${MODEL_COLORS[config.model] ?? 'bg-gray-400'}`} />
-                                    <span className="font-bold text-[12px] uppercase tracking-wider">{config.title || `Produkt ${idx + 1}`}</span>
-                                </div>
+                                <span className="font-bold text-[12px] uppercase tracking-wider">{config.title || `Produkt ${idx + 1}`}</span>
                                 <button onClick={() => deleteConfig(config.id)}
                                     className="text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors cursor-pointer">
                                     <Trash2 size={13} />
@@ -943,95 +1004,106 @@ function ProizvodiTab() {
                             </div>
 
                             <div className="p-4 space-y-4">
-
-                                {/* Image Upload */}
+                                {/* Image upload */}
                                 <div>
                                     <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Produktbild</label>
                                     <div className="flex gap-3 items-center">
-                                        {config.image_url ? (
-                                            <img src={config.image_url} alt="" className="w-16 h-16 object-cover rounded-xl border border-gray-100" />
-                                        ) : (
-                                            <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center">
-                                                <ImageIcon size={20} className="text-gray-300" />
-                                            </div>
-                                        )}
+                                        {config.image_url
+                                            ? <img src={config.image_url} alt="" className="w-14 h-14 object-cover rounded-xl border" />
+                                            : <div className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center"><ImageIcon size={18} className="text-gray-300" /></div>
+                                        }
                                         <label className={`flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 text-[11px] font-bold cursor-pointer hover:border-black hover:text-black transition-colors ${uploading === config.id ? 'opacity-50 pointer-events-none' : ''}`}>
-                                            <Upload size={13} />
-                                            {uploading === config.id ? 'Hochladen...' : 'Bild hochladen'}
+                                            <Upload size={12} />{uploading === config.id ? 'Hochladen...' : 'Bild hochladen'}
                                             <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(config.id, f); }} />
                                         </label>
                                     </div>
-                                    <p className="text-[10px] text-gray-400 mt-1">Leer = Standard HYLA Bild aus dem Design</p>
                                 </div>
 
-                                {/* Aktion Section */}
+                                {/* Aktion */}
                                 <div className="bg-orange-50 rounded-xl p-3 space-y-2 border border-orange-100">
                                     <p className="text-[10px] font-bold uppercase tracking-wider text-orange-500">🏷️ Aktion / Promotion</p>
-                                    <div>
-                                        <label className="block text-[10px] text-gray-500 mb-1">Aktions-Label (z.B. NEU, Valentinstag Aktion)</label>
-                                        <input value={act.label}
-                                            onChange={e => updateAction(config.id, 'label', e.target.value)}
-                                            placeholder="z.B. Valentinstag Aktion"
-                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] text-gray-500 mb-1">Extra für diese Aktion</label>
-                                        <input value={act.extra}
-                                            onChange={e => updateAction(config.id, 'extra', e.target.value)}
-                                            placeholder="z.B. Gratis Luftreiniger dazu"
-                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400" />
-                                    </div>
+                                    <input value={act.label} onChange={e => updateAction(config.id, 'label', e.target.value)}
+                                        placeholder="z.B. Valentinstag Aktion"
+                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400" />
+                                    <input value={act.extra} onChange={e => updateAction(config.id, 'extra', e.target.value)}
+                                        placeholder="z.B. Gratis Luftreiniger dazu"
+                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400" />
                                 </div>
 
-                                {/* Toggle Option — persists immediately */}
-                                <div className="flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-xl border border-gray-100">
-                                    <div>
-                                        <p className="text-[11px] font-bold">Black/White Toggle</p>
-                                        <p className="text-[10px] text-gray-400">Zeigt Umschalter auf der Website</p>
-                                    </div>
-                                    <button
-                                        onClick={() => toggleProduct(config.id)}
-                                        className={`relative w-10 h-6 rounded-full transition-colors cursor-pointer ${tog ? 'bg-black' : 'bg-gray-200'}`}>
-                                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${tog ? 'translate-x-4' : ''}`} />
-                                    </button>
-                                </div>
+                                {/* Main product fields */}
+                                <ProductFields
+                                    label={hasVariant ? `📦 Hauptversion (${config.title || 'Hauptvariante'})` : undefined}
+                                    values={config}
+                                    onChange={(f, v) => updateField(config.id, f as keyof PricingConfig, v)}
+                                />
 
-                                {/* Standard Fields */}
-                                <div className="space-y-3">
-                                    {[
-                                        { label: 'Titel', field: 'title' as const, placeholder: 'HYLA Black' },
-                                        { label: 'Badge', field: 'badge' as const, placeholder: 'BESTSELLER' },
-                                        { label: 'Finanzierungstext', field: 'financing_text' as const, placeholder: 'ab 39,00 € / Monat' },
-                                        { label: 'Feature 1', field: 'feature1' as const, placeholder: 'Premium Finish' },
-                                        { label: 'Feature 2', field: 'feature2' as const, placeholder: 'Komplettes Zubehör-Set' },
-                                        { label: 'Feature 3', field: 'feature3' as const, placeholder: 'Smart Water Technologie' },
-                                        { label: 'Button-Text', field: 'cta_text' as const, placeholder: 'Jetzt bestellen' },
-                                    ].map(({ label, field, placeholder }) => (
-                                        <div key={field}>
-                                            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">{label}</label>
-                                            <input value={String(config[field] ?? '')}
-                                                onChange={e => updateField(config.id, field, e.target.value)}
-                                                placeholder={placeholder}
-                                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black" />
+                                {/* Variant section */}
+                                {showVariantForm && variant !== undefined && (
+                                    <div className="mt-2 border border-dashed border-gray-300 rounded-xl p-3 space-y-3 bg-gray-50">
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-[11px] font-bold text-gray-700">✨ Zweite Variante</p>
+                                            <button onClick={() => removeVariant(config.id)}
+                                                className="text-[10px] text-red-400 hover:text-red-600 font-bold cursor-pointer">
+                                                × Entfernen
+                                            </button>
                                         </div>
-                                    ))}
-                                </div>
+                                        {/* Variant custom name */}
+                                        <div>
+                                            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Varianten-Name (z.B. "White Edition")</label>
+                                            <input
+                                                value={variant?.name ?? ''}
+                                                onChange={e => updateVariant(config.id, 'name', e.target.value)}
+                                                placeholder='z.B. White Edition, Premium, ...'
+                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black font-bold"
+                                            />
+                                        </div>
+                                        {/* Variant image */}
+                                        <div className="flex gap-3 items-center">
+                                            {variant?.image_url
+                                                ? <img src={variant.image_url} alt="" className="w-12 h-12 object-cover rounded-xl border" />
+                                                : <div className="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center"><ImageIcon size={16} className="text-gray-400" /></div>
+                                            }
+                                            <label className="flex-1 flex items-center justify-center gap-2 h-9 rounded-xl border-2 border-dashed border-gray-300 text-gray-400 text-[10px] font-bold cursor-pointer hover:border-gray-600 hover:text-gray-700 transition-colors">
+                                                <Upload size={11} />Varianten-Bild
+                                                <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(config.id, f, true); }} />
+                                            </label>
+                                        </div>
+                                        <ProductFields
+                                            values={variant ?? EMPTY_VARIANT}
+                                            onChange={(f, v) => updateVariant(config.id, f, v)}
+                                        />
+                                    </div>
+                                )}
+
+                                {/* + Version button */}
+                                {!showVariantForm && (
+                                    <button onClick={() => addVariant(config.id)}
+                                        className="w-full flex items-center justify-center gap-2 h-9 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 text-[11px] font-bold cursor-pointer hover:border-black hover:text-black transition-colors">
+                                        <Plus size={13} /> Zweite Variante hinzufügen
+                                    </button>
+                                )}
                             </div>
                         </div>
                     );
                 })}
             </div>
 
-            {/* Save Button */}
+            {/* Save */}
             <div className="p-4 border-t border-gray-100">
                 <button onClick={saveAll} disabled={saving}
                     className="w-full h-12 bg-black text-white font-bold rounded-xl hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
-                    <Save size={15} /> {saving ? 'Speichern...' : 'Alle Produkte speichern'}
+                    <Save size={15} />{saving ? 'Speichern...' : 'Alle Produkte speichern'}
                 </button>
             </div>
         </div>
     );
 }
+
+
+
+
+
+
 
 // ─── PODEŠAVANJA TAB ─────────────────────────────────────────────────────────
 function PodesavanjaTab() {
