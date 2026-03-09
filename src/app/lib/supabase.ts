@@ -50,7 +50,7 @@ export interface GalleryImage {
 
 export interface PricingConfig {
     id: number;
-    model: 'black' | 'white';
+    model: 'black' | 'white' | 'steamer' | string;
     title: string;
     badge: string;
     financing_text: string;
@@ -58,6 +58,18 @@ export interface PricingConfig {
     feature2: string;
     feature3: string;
     cta_text: string;
+    // Extended fields (added via SQL migration)
+    image_url?: string;
+    action_label?: string;   // e.g. "NEU", "Valentinstag Aktion"
+    action_extra?: string;   // e.g. "Gratis Luftreiniger dazu"
+    show_toggle?: boolean;   // if true, show Black/White toggle
+    linked_to?: string;      // model this is linked to for toggle
+    sort_order?: number;
+}
+
+export interface SiteSettings {
+    key: string;
+    value: string;
 }
 
 export interface Setting {
