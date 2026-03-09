@@ -776,7 +776,14 @@ function ProizvodiTab() {
     const fetch = useCallback(async () => {
         setLoading(true);
         const { data } = await supabase.from('pricing_config').select('*').in('model', ['black', 'white', 'steamer']).order('id');
-        setConfigs(data ?? []);
+        // Deduplicate by model — keep first occurrence of each
+        const seen = new Set<string>();
+        const deduped = (data ?? []).filter(c => {
+            if (seen.has(c.model)) return false;
+            seen.add(c.model);
+            return true;
+        });
+        setConfigs(deduped);
         setLoading(false);
     }, []);
 
