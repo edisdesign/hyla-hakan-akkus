@@ -929,7 +929,7 @@ function ProizvodiTab() {
         if (configs.length >= 3) return;
         setAdding(true);
         const { data, error } = await supabase.from('pricing_config').insert({
-            model: `produkt_${Date.now()}`,
+            model: 'black', // Using an allowed model name to satisfy the constraints
             title: 'Neues Produkt', badge: 'NEU',
             financing_text: '', feature1: '', feature2: '', feature3: '', cta_text: 'Jetzt bestellen',
         }).select().single();
@@ -942,7 +942,7 @@ function ProizvodiTab() {
     const uploadImage = async (id: number, file: File, forVariant = false) => {
         setUploading(id);
         const ext = file.name.split('.').pop();
-        const path = `products/${id}-${forVariant ? 'v' : ''}-${Date.now()}.${ext}`;
+        const path = `hero/product-${id}-${forVariant ? 'v' : ''}-${Date.now()}.${ext}`;
         const { error } = await supabase.storage.from('cover-images').upload(path, file, { upsert: true });
         if (error) { toast.error(`Upload fehlgeschlagen: ${error.message}`); setUploading(null); return; }
         const { data: { publicUrl } } = supabase.storage.from('cover-images').getPublicUrl(path);
