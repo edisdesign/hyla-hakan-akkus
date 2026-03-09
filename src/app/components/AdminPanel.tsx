@@ -1180,9 +1180,9 @@ function TeamTab() {
         setUploading(true);
         const ext = file.name.split('.').pop();
         const path = `team/team-photo.${ext}`;
-        const { error } = await supabase.storage.from('cover-images').upload(path, file, { upsert: true });
+        const { error } = await supabase.storage.from('images').upload(path, file, { upsert: true });
         if (error) { toast.error('Upload fehlgeschlagen'); setUploading(false); return; }
-        const { data: { publicUrl } } = supabase.storage.from('cover-images').getPublicUrl(path);
+        const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(path);
         const cacheBusted = `${publicUrl}?t=${Date.now()}`;
         // Save to site_settings
         await supabase.from('site_settings').upsert({ key: 'team_image_url', value: cacheBusted }, { onConflict: 'key' });
