@@ -101,8 +101,8 @@ export function HylaMondayGallery({ language }: HylaMondayGalleryProps) {
                 key={index}
                 onClick={() => setActiveId(index)}
                 className={`relative overflow-hidden rounded-2xl cursor-pointer group shadow-lg hover:shadow-2xl transition-shadow duration-500 ${isActive
-                    ? 'md:col-span-2 md:row-span-2'
-                    : 'col-span-1 row-span-1 opacity-80 hover:opacity-100'
+                  ? 'md:col-span-2 md:row-span-2'
+                  : 'col-span-1 row-span-1 opacity-80 hover:opacity-100'
                   }`}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
               >
@@ -118,15 +118,7 @@ export function HylaMondayGallery({ language }: HylaMondayGalleryProps) {
 
                   <div className={`absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
 
-                  {isActive && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="absolute bottom-6 left-6 text-white"
-                    >
-                      <p className="text-lg font-bold">{image.alt}</p>
-                    </motion.div>
-                  )}
+
                 </motion.div>
               </motion.div>
             );

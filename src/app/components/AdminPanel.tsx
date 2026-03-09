@@ -775,7 +775,7 @@ function ProizvodiTab() {
 
     const fetch = useCallback(async () => {
         setLoading(true);
-        const { data } = await supabase.from('pricing_config').select('*').order('id');
+        const { data } = await supabase.from('pricing_config').select('*').in('model', ['black', 'white', 'steamer']).order('id');
         setConfigs(data ?? []);
         setLoading(false);
     }, []);

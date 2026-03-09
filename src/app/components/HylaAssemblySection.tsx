@@ -1,6 +1,7 @@
 import { Language, translations } from '@/app/translations';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router';
+import { useEffect, useRef } from 'react';
 
 // Phase images
 import imgExploded from "figma:asset/65e0b451e369591030eb13cde9527ba0d6456a3c.png";
@@ -16,6 +17,42 @@ interface HylaAssemblySectionProps {
 
 export function HylaAssemblySection({ language }: HylaAssemblySectionProps) {
   const t = translations[language].assemblySection;
+  const containerRef = useRef<HTMLElement>(null);
+  const stickyRef = useRef<HTMLDivElement>(null);
+
+  // JS fallback for browsers that don't support CSS scroll-driven animations
+  // (Safari on iOS/iPadOS)
+  useEffect(() => {
+    const supportsScrollTimeline = CSS.supports('animation-timeline', 'scroll()');
+    if (supportsScrollTimeline) return; // CSS handles it natively
+
+    const container = containerRef.current;
+    const sticky = stickyRef.current;
+    if (!container || !sticky) return;
+
+    const onScroll = () => {
+      const rect = container.getBoundingClientRect();
+      const totalScrollable = container.offsetHeight - window.innerHeight;
+      // How far we've scrolled into the container (clamped 0–1)
+      const progress = Math.max(0, Math.min(1, -rect.top / totalScrollable));
+      // Map 0–1 into 6 equal phases
+      const phase = Math.min(6, Math.floor(progress * 6) + 1);
+      // Remove any existing phase class, apply the new one
+      sticky.className = sticky.className
+        .replace(/assembly-js-phase-\d/g, '')
+        .trim();
+      sticky.classList.add(`assembly-js-phase-${phase}`);
+      // Also update scroll bar fill
+      const fill = sticky.querySelector<HTMLElement>('.assembly-scrollbar-fill');
+      if (fill) {
+        fill.style.transform = `scaleY(${progress})`;
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll(); // Run once on mount
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const parts = [
     { label: t.part1Label, title: t.part1Title, desc: t.part1Desc, link: t.part1Link },
@@ -27,8 +64,8 @@ export function HylaAssemblySection({ language }: HylaAssemblySectionProps) {
   ];
 
   return (
-    <section className="assembly-scroll-container h-[600vh] bg-white relative">
-      <div className="sticky top-0 h-screen overflow-hidden bg-white">
+    <section ref={containerRef} className="assembly-scroll-container h-[600vh] bg-white relative">
+      <div ref={stickyRef} className="sticky top-0 h-screen overflow-hidden bg-white">
 
         {/* Background Ambient Text */}
         <div className="assembly-bg-text absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[15vw] font-bold text-gray-100/40 pointer-events-none select-none tracking-tighter leading-none">

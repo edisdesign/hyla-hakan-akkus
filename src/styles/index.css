@@ -223,124 +223,307 @@ body {
 }
 
 /* ========================================
-   APPLY ANIMATIONS — all reference --assembly
+   FALLBACK for browsers WITHOUT scroll-driven animations
+   (Safari / iPadOS up to ~Safari 17)
+   JS in HylaAssemblySection will control active phase via data-phase attribute.
    ======================================== */
 
-.assembly-img-1 {
-  animation: img1-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
+/* Default: hide all phases except phase 1 */
+.assembly-img-1,
+.assembly-text-1,
+.assembly-desc-1 {
+  opacity: 1;
+  transform: none;
 }
 
-.assembly-img-2 {
-  animation: img2-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-img-3 {
-  animation: img3-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-img-4 {
-  animation: img4-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-img-5 {
-  animation: img5-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-img-6 {
-  animation: img6-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-text-1 {
-  animation: text1-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-text-2 {
-  animation: text2-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-text-3 {
-  animation: text3-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
+.assembly-img-2,
+.assembly-img-3,
+.assembly-img-4,
+.assembly-img-5,
+.assembly-img-6,
+.assembly-text-2,
+.assembly-text-3,
+.assembly-desc-2,
+.assembly-desc-3,
+.assembly-desc-4,
+.assembly-desc-5,
+.assembly-desc-6 {
+  opacity: 0;
 }
 
 .assembly-labels {
-  animation: labels-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
+  opacity: 1;
 }
-
-.assembly-scroll-indicator {
-  animation: scroll-indicator-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-bg-text {
-  animation: bg-text-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-/* ---- Description animations ---- */
-
-.assembly-desc-1 {
-  animation: desc1-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-desc-2 {
-  animation: desc2-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-desc-3 {
-  animation: desc3-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-desc-4 {
-  animation: desc4-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-desc-5 {
-  animation: desc5-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-.assembly-desc-6 {
-  animation: desc6-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
-}
-
-/* ---- Scrollbar fill animation ---- */
 
 .assembly-scrollbar-fill {
-  animation: scrollbar-fill-anim linear both;
-  animation-timeline: --assembly;
-  animation-range: contain 0% contain 100%;
   transform-origin: top center;
+  transform: scaleY(0);
+}
+
+/* JS-driven active phase classes (for non-supporting browsers) */
+.assembly-js-phase-1 .assembly-img-1,
+.assembly-js-phase-1 .assembly-text-1,
+.assembly-js-phase-1 .assembly-desc-1,
+.assembly-js-phase-1 .assembly-labels { opacity: 1; }
+.assembly-js-phase-1 .assembly-img-2,
+.assembly-js-phase-1 .assembly-img-3,
+.assembly-js-phase-1 .assembly-img-4,
+.assembly-js-phase-1 .assembly-img-5,
+.assembly-js-phase-1 .assembly-img-6,
+.assembly-js-phase-1 .assembly-text-2,
+.assembly-js-phase-1 .assembly-text-3,
+.assembly-js-phase-1 .assembly-desc-2,
+.assembly-js-phase-1 .assembly-desc-3,
+.assembly-js-phase-1 .assembly-desc-4,
+.assembly-js-phase-1 .assembly-desc-5,
+.assembly-js-phase-1 .assembly-desc-6 { opacity: 0; }
+
+.assembly-js-phase-2 .assembly-img-2 { opacity: 1; }
+.assembly-js-phase-2 .assembly-text-1 { opacity: 1; }
+.assembly-js-phase-2 .assembly-desc-2 { opacity: 1; }
+.assembly-js-phase-2 .assembly-img-1,
+.assembly-js-phase-2 .assembly-img-3,
+.assembly-js-phase-2 .assembly-img-4,
+.assembly-js-phase-2 .assembly-img-5,
+.assembly-js-phase-2 .assembly-img-6,
+.assembly-js-phase-2 .assembly-text-2,
+.assembly-js-phase-2 .assembly-text-3,
+.assembly-js-phase-2 .assembly-desc-1,
+.assembly-js-phase-2 .assembly-desc-3,
+.assembly-js-phase-2 .assembly-desc-4,
+.assembly-js-phase-2 .assembly-desc-5,
+.assembly-js-phase-2 .assembly-desc-6,
+.assembly-js-phase-2 .assembly-labels { opacity: 0; }
+
+.assembly-js-phase-3 .assembly-img-3 { opacity: 1; }
+.assembly-js-phase-3 .assembly-text-1 { opacity: 1; }
+.assembly-js-phase-3 .assembly-desc-3 { opacity: 1; }
+.assembly-js-phase-3 .assembly-img-1,
+.assembly-js-phase-3 .assembly-img-2,
+.assembly-js-phase-3 .assembly-img-4,
+.assembly-js-phase-3 .assembly-img-5,
+.assembly-js-phase-3 .assembly-img-6,
+.assembly-js-phase-3 .assembly-text-2,
+.assembly-js-phase-3 .assembly-text-3,
+.assembly-js-phase-3 .assembly-desc-1,
+.assembly-js-phase-3 .assembly-desc-2,
+.assembly-js-phase-3 .assembly-desc-4,
+.assembly-js-phase-3 .assembly-desc-5,
+.assembly-js-phase-3 .assembly-desc-6,
+.assembly-js-phase-3 .assembly-labels { opacity: 0; }
+
+.assembly-js-phase-4 .assembly-img-4 { opacity: 1; }
+.assembly-js-phase-4 .assembly-text-2 { opacity: 1; }
+.assembly-js-phase-4 .assembly-desc-4 { opacity: 1; }
+.assembly-js-phase-4 .assembly-img-1,
+.assembly-js-phase-4 .assembly-img-2,
+.assembly-js-phase-4 .assembly-img-3,
+.assembly-js-phase-4 .assembly-img-5,
+.assembly-js-phase-4 .assembly-img-6,
+.assembly-js-phase-4 .assembly-text-1,
+.assembly-js-phase-4 .assembly-text-3,
+.assembly-js-phase-4 .assembly-desc-1,
+.assembly-js-phase-4 .assembly-desc-2,
+.assembly-js-phase-4 .assembly-desc-3,
+.assembly-js-phase-4 .assembly-desc-5,
+.assembly-js-phase-4 .assembly-desc-6,
+.assembly-js-phase-4 .assembly-labels { opacity: 0; }
+
+.assembly-js-phase-5 .assembly-img-5 { opacity: 1; }
+.assembly-js-phase-5 .assembly-text-2 { opacity: 1; }
+.assembly-js-phase-5 .assembly-desc-5 { opacity: 1; }
+.assembly-js-phase-5 .assembly-img-1,
+.assembly-js-phase-5 .assembly-img-2,
+.assembly-js-phase-5 .assembly-img-3,
+.assembly-js-phase-5 .assembly-img-4,
+.assembly-js-phase-5 .assembly-img-6,
+.assembly-js-phase-5 .assembly-text-1,
+.assembly-js-phase-5 .assembly-text-3,
+.assembly-js-phase-5 .assembly-desc-1,
+.assembly-js-phase-5 .assembly-desc-2,
+.assembly-js-phase-5 .assembly-desc-3,
+.assembly-js-phase-5 .assembly-desc-4,
+.assembly-js-phase-5 .assembly-desc-6,
+.assembly-js-phase-5 .assembly-labels { opacity: 0; }
+
+.assembly-js-phase-6 .assembly-img-6 { opacity: 1; }
+.assembly-js-phase-6 .assembly-text-3 { opacity: 1; }
+.assembly-js-phase-6 .assembly-desc-6 { opacity: 1; }
+.assembly-js-phase-6 .assembly-img-1,
+.assembly-js-phase-6 .assembly-img-2,
+.assembly-js-phase-6 .assembly-img-3,
+.assembly-js-phase-6 .assembly-img-4,
+.assembly-js-phase-6 .assembly-img-5,
+.assembly-js-phase-6 .assembly-text-1,
+.assembly-js-phase-6 .assembly-text-2,
+.assembly-js-phase-6 .assembly-desc-1,
+.assembly-js-phase-6 .assembly-desc-2,
+.assembly-js-phase-6 .assembly-desc-3,
+.assembly-js-phase-6 .assembly-desc-4,
+.assembly-js-phase-6 .assembly-desc-5,
+.assembly-js-phase-6 .assembly-labels { opacity: 0; }
+
+/* JS phase transitions */
+[class*="assembly-js-phase-"] .assembly-img-1,
+[class*="assembly-js-phase-"] .assembly-img-2,
+[class*="assembly-js-phase-"] .assembly-img-3,
+[class*="assembly-js-phase-"] .assembly-img-4,
+[class*="assembly-js-phase-"] .assembly-img-5,
+[class*="assembly-js-phase-"] .assembly-img-6,
+[class*="assembly-js-phase-"] .assembly-text-1,
+[class*="assembly-js-phase-"] .assembly-text-2,
+[class*="assembly-js-phase-"] .assembly-text-3,
+[class*="assembly-js-phase-"] .assembly-desc-1,
+[class*="assembly-js-phase-"] .assembly-desc-2,
+[class*="assembly-js-phase-"] .assembly-desc-3,
+[class*="assembly-js-phase-"] .assembly-desc-4,
+[class*="assembly-js-phase-"] .assembly-desc-5,
+[class*="assembly-js-phase-"] .assembly-desc-6,
+[class*="assembly-js-phase-"] .assembly-labels {
+  transition: opacity 0.4s ease;
+}
+
+/* ========================================
+   APPLY CSS SCROLL-DRIVEN ANIMATIONS
+   Only for browsers that support animation-timeline
+   ======================================== */
+
+@supports (animation-timeline: scroll()) {
+  /* Reset fallback defaults — CSS animations will take over */
+  .assembly-img-1,
+  .assembly-img-2,
+  .assembly-img-3,
+  .assembly-img-4,
+  .assembly-img-5,
+  .assembly-img-6,
+  .assembly-text-1,
+  .assembly-text-2,
+  .assembly-text-3,
+  .assembly-desc-1,
+  .assembly-desc-2,
+  .assembly-desc-3,
+  .assembly-desc-4,
+  .assembly-desc-5,
+  .assembly-desc-6,
+  .assembly-labels,
+  .assembly-scrollbar-fill {
+    opacity: unset;
+    transform: unset;
+    transition: none;
+  }
+
+  .assembly-img-1 {
+    animation: img1-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-img-2 {
+    animation: img2-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-img-3 {
+    animation: img3-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-img-4 {
+    animation: img4-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-img-5 {
+    animation: img5-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-img-6 {
+    animation: img6-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-text-1 {
+    animation: text1-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-text-2 {
+    animation: text2-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-text-3 {
+    animation: text3-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-labels {
+    animation: labels-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-scroll-indicator {
+    animation: scroll-indicator-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-bg-text {
+    animation: bg-text-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-desc-1 {
+    animation: desc1-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-desc-2 {
+    animation: desc2-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-desc-3 {
+    animation: desc3-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-desc-4 {
+    animation: desc4-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-desc-5 {
+    animation: desc5-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-desc-6 {
+    animation: desc6-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+  }
+
+  .assembly-scrollbar-fill {
+    animation: scrollbar-fill-anim linear both;
+    animation-timeline: --assembly;
+    animation-range: contain 0% contain 100%;
+    transform-origin: top center;
+  }
 }
