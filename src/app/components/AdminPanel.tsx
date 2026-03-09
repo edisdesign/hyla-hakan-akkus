@@ -943,9 +943,9 @@ function ProizvodiTab() {
         setUploading(id);
         const ext = file.name.split('.').pop();
         const path = `hero/product-${id}-${forVariant ? 'v' : ''}-${Date.now()}.${ext}`;
-        const { error } = await supabase.storage.from('cover-images').upload(path, file, { upsert: true });
+        const { error } = await supabase.storage.from('images').upload(path, file, { upsert: true });
         if (error) { toast.error(`Upload fehlgeschlagen: ${error.message}`); setUploading(null); return; }
-        const { data: { publicUrl } } = supabase.storage.from('cover-images').getPublicUrl(path);
+        const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(path);
         const url = `${publicUrl}?t=${Date.now()}`;
         if (forVariant) {
             updateVariant(id, 'image_url', url);
