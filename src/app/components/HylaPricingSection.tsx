@@ -190,7 +190,7 @@ export function HylaPricingSection({ language }: HylaPricingSectionProps) {
                                  transition={{ duration: 0.35, ease: "easeOut" }}
                                  src={currentImg}
                                  alt={currentData.title}
-                                 className="relative z-10 object-contain drop-shadow-2xl group-hover:scale-110 group-hover:-rotate-2 transition-transform duration-700"
+                                 className="relative z-10 object-contain group-hover:scale-110 group-hover:-rotate-2 transition-transform duration-700"
                                  style={{ maxHeight: '280px', height: '280px' }}
                               />
                            </AnimatePresence>
