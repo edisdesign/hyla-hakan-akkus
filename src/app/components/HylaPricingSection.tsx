@@ -54,13 +54,7 @@ export function HylaPricingSection({ language }: HylaPricingSectionProps) {
       const load = async () => {
          const { data: raw } = await supabase.from('pricing_config').select('*').order('id');
          if (!raw) { setLoading(false); return; }
-         const seen = new Set<string>();
-         const deduped = (raw as PricingConfig[]).filter(c => {
-            if (seen.has(c.model)) return false;
-            seen.add(c.model);
-            return true;
-         });
-         setProducts(deduped);
+         setProducts(raw as PricingConfig[]);
 
          // Load ALL site_settings to get variants, actions, and overriding main images
          const { data: settings } = await supabase.from('site_settings').select('key, value');
