@@ -841,11 +841,7 @@ function ProizvodiTab() {
     const loadAll = useCallback(async () => {
         setLoading(true);
         const { data: raw } = await supabase.from('pricing_config').select('*').order('id');
-        const seen = new Set<string>();
-        const deduped = (raw ?? []).filter((c: PricingConfig) => {
-            if (seen.has(c.model)) return false; seen.add(c.model); return true;
-        });
-        setConfigs(deduped);
+        setConfigs(raw as PricingConfig[] ?? []);
 
         // Load variants and actions from site_settings
         const { data: settings } = await supabase.from('site_settings').select('key, value');
