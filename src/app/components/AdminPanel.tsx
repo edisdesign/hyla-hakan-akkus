@@ -928,8 +928,13 @@ function ProizvodiTab() {
     const addProduct = async () => {
         if (configs.length >= 3) return;
         setAdding(true);
+        // DB only allows 'black', 'white', 'steamer' model names
+        const allowedModels = ['black', 'white', 'steamer'];
+        const usedModels = configs.map(c => c.model);
+        const nextModel = allowedModels.find(m => !usedModels.includes(m)) || 'black';
+
         const { data, error } = await supabase.from('pricing_config').insert({
-            model: 'black', // Using an allowed model name to satisfy the constraints
+            model: nextModel,
             title: 'Neues Produkt', badge: 'NEU',
             financing_text: '', feature1: '', feature2: '', feature3: '', cta_text: 'Jetzt bestellen',
         }).select().single();
