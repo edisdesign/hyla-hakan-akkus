@@ -31,13 +31,13 @@ import imgStmBodentuchKlein from "figma:asset/3e15d386320bd90f19abd8da6c76397f16
 import imgStmFrotteetuecher from "figma:asset/a49938f17f50f39238629d7203d790b0af213cd2.png";
 
 // ── Before/After & result images for the collage ──────────────────────────────
-const IMG_VORHER_FUGEN   = 'https://images.unsplash.com/photo-1667923869411-f998f790ce98?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
-const IMG_NACHHER_BAD    = 'https://images.unsplash.com/photo-1765556556784-7656ee0a1bd8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
-const IMG_VORHER_KUECHE  = 'https://images.unsplash.com/photo-1646023385379-00d0afb0319c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
+const IMG_VORHER_FUGEN = 'https://images.unsplash.com/photo-1667923869411-f998f790ce98?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
+const IMG_NACHHER_BAD = 'https://images.unsplash.com/photo-1765556556784-7656ee0a1bd8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
+const IMG_VORHER_KUECHE = 'https://images.unsplash.com/photo-1646023385379-00d0afb0319c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
 const IMG_NACHHER_KUECHE = 'https://images.unsplash.com/photo-1769259614866-e6f8ed878444?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
-const IMG_DAMPF_ACTION   = 'https://images.unsplash.com/photo-1768733993357-722d07ffd7dd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
-const IMG_SOFA           = 'https://images.unsplash.com/photo-1594819043886-58bd40725699?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
-const IMG_AUTO           = 'https://images.unsplash.com/photo-1727940334409-36a3407d623a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
+const IMG_DAMPF_ACTION = 'https://images.unsplash.com/photo-1768733993357-722d07ffd7dd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
+const IMG_SOFA = 'https://images.unsplash.com/photo-1594819043886-58bd40725699?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
+const IMG_AUTO = 'https://images.unsplash.com/photo-1727940334409-36a3407d623a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
 
 const videoIds = [
   'j9-RZr7NIQk', 'rN_66vI98EQ', 'HEnB6dHLdh4',
@@ -67,11 +67,10 @@ const InteractiveVideoGrid = ({
             key={id}
             onClick={() => setActiveIndex(index)}
             onMouseEnter={() => setActiveIndex(index)}
-            className={`relative rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black/40 backdrop-blur-sm cursor-pointer transition-colors duration-300 ${
-              isActive
+            className={`relative rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black/40 backdrop-blur-sm cursor-pointer transition-colors duration-300 ${isActive
                 ? 'col-span-2 row-span-2 ring-1 ring-white/20 z-10'
                 : 'col-span-1 row-span-1 hover:ring-1 hover:ring-white/30 hover:bg-white/5 opacity-80 hover:opacity-100'
-            }`}
+              }`}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           >
             <AnimatePresence mode="wait">
@@ -264,11 +263,10 @@ function CollageCell({
       </div>
       {item.badge && (
         <div
-          className={`absolute top-3 left-3 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest backdrop-blur-sm ${
-            item.badge === 'vorher'
+          className={`absolute top-3 left-3 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest backdrop-blur-sm ${item.badge === 'vorher'
               ? 'bg-red-500/90 text-white border border-red-400/50'
               : 'bg-emerald-500/90 text-white border border-emerald-400/50'
-          }`}
+            }`}
         >
           {item.badge === 'vorher' ? '● Vorher' : '✓ Nachher'}
         </div>
@@ -290,52 +288,30 @@ function SteamerCollage({
   onImageClick: (src: string, alt: string) => void;
 }) {
   const items: CollageItem[] = [
-    { kind: 'video',  videoId: videoIds[0] },
-    { kind: 'image',  src: IMG_VORHER_FUGEN,   alt: 'Fugen vor Reinigung',   badge: 'vorher',  label: 'Fugen & Fliesen' },
-    { kind: 'image',  src: IMG_NACHHER_BAD,    alt: 'Bad nach Reinigung',    badge: 'nachher', label: 'Makellos sauber' },
-    { kind: 'image',  src: IMG_DAMPF_ACTION,   alt: 'Dampfreinigung',        label: 'Dampfkraft pur' },
-    { kind: 'video',  videoId: videoIds[1] },
-    { kind: 'image',  src: IMG_VORHER_KUECHE,  alt: 'Küche vor Reinigung',   badge: 'vorher',  label: 'Küche & Herd' },
-    { kind: 'image',  src: IMG_NACHHER_KUECHE, alt: 'Küche nach Reinigung',  badge: 'nachher', label: 'Glänzt wie neu' },
-    { kind: 'video',  videoId: videoIds[2] },
-    { kind: 'video',  videoId: videoIds[3] },
-    { kind: 'image',  src: IMG_AUTO,           alt: 'Auto Detailing',        label: 'Auto & Detailing' },
-    { kind: 'image',  src: IMG_SOFA,           alt: 'Polster & Textilien',   label: 'Polster & Textilien' },
+    { kind: 'video', videoId: videoIds[0] },
+    { kind: 'video', videoId: videoIds[1] },
+    { kind: 'video', videoId: videoIds[2] },
+    { kind: 'video', videoId: videoIds[3] },
   ];
 
-  // [colStart, colEnd, rowStart, rowEnd] — 4-column, 4-row grid
-  const placements = [
-    [1, 3, 1, 3], // main video 2×2
-    [3, 4, 1, 2],
-    [4, 5, 1, 2],
-    [3, 4, 2, 3],
-    [4, 5, 2, 3],
-    [1, 2, 3, 4],
-    [2, 3, 3, 4],
-    [3, 5, 3, 4], // wide video 2×1
-    [1, 3, 4, 5], // wide video 2×1
-    [3, 4, 4, 5],
-    [4, 5, 4, 5],
-  ];
-
+  // For 4 videos, let's just make a simple 2x2 grid
   return (
     <div
-      className="grid gap-3"
+      className="grid gap-4"
       style={{
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gridTemplateRows: 'repeat(4, 230px)',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gridTemplateRows: 'repeat(2, 300px)',
       }}
     >
       {items.map((item, i) => {
-        const [cs, ce, rs, re] = placements[i];
         return (
           <motion.div
             key={i}
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.1 }}
-            transition={{ duration: 0.5, delay: i * 0.04 }}
-            style={{ gridColumn: `${cs} / ${ce}`, gridRow: `${rs} / ${re}` }}
+            transition={{ duration: 0.5, delay: i * 0.1 }}
+            className="w-full h-full"
           >
             <CollageCell item={item} onVideoClick={onVideoClick} onImageClick={onImageClick} />
           </motion.div>
@@ -353,28 +329,23 @@ function SteamerCollageMobile({
   onImageClick: (src: string, alt: string) => void;
 }) {
   const items: CollageItem[] = [
-    { kind: 'video',  videoId: videoIds[0] },
-    { kind: 'image',  src: IMG_VORHER_FUGEN,   alt: 'Fugen vor Reinigung',   badge: 'vorher',  label: 'Fugen & Fliesen' },
-    { kind: 'image',  src: IMG_NACHHER_BAD,    alt: 'Bad nach Reinigung',    badge: 'nachher', label: 'Makellos sauber' },
-    { kind: 'video',  videoId: videoIds[1] },
-    { kind: 'image',  src: IMG_VORHER_KUECHE,  alt: 'Küche vor Reinigung',   badge: 'vorher',  label: 'Küche & Herd' },
-    { kind: 'image',  src: IMG_NACHHER_KUECHE, alt: 'Küche nach Reinigung',  badge: 'nachher', label: 'Glänzt wie neu' },
-    { kind: 'image',  src: IMG_DAMPF_ACTION,   alt: 'Dampfreinigung',        label: 'Dampfkraft pur' },
-    { kind: 'video',  videoId: videoIds[2] },
-    { kind: 'image',  src: IMG_AUTO,           alt: 'Auto Detailing',        label: 'Auto & Detailing' },
-    { kind: 'image',  src: IMG_SOFA,           alt: 'Polster',               label: 'Polster & Textilien' },
+    { kind: 'video', videoId: videoIds[0] },
+    { kind: 'video', videoId: videoIds[1] },
+    { kind: 'video', videoId: videoIds[2] },
+    { kind: 'video', videoId: videoIds[3] },
   ];
 
+  // Mobile layout for 4 videos
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 gap-4">
       {items.map((item, i) => (
         <motion.div
           key={i}
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.4, delay: i * 0.05 }}
-          className={`h-[170px] ${i === 0 ? 'col-span-2 h-[220px]' : ''}`}
+          transition={{ duration: 0.4, delay: i * 0.1 }}
+          className="h-[220px] w-full"
         >
           <CollageCell item={item} onVideoClick={onVideoClick} onImageClick={onImageClick} />
         </motion.div>
@@ -397,7 +368,7 @@ export function HylaSteamerPage() {
     target: heroRef,
     offset: ['start start', 'end start'],
   });
-  const heroScale   = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
+  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.85], [1, 0]);
 
   const handleWhatsApp = (type: 'demo' | 'contact' = 'demo') => {
@@ -416,26 +387,26 @@ export function HylaSteamerPage() {
   };
 
   const features = [
-    { icon: SprayCan, title: t.featureFloor,   desc: t.featureFloorDesc },
-    { icon: Flame,    title: t.featureKitchen,  desc: t.featureKitchenDesc },
-    { icon: Bath,     title: t.featureBath,     desc: t.featureBathDesc },
-    { icon: Shirt,    title: t.featureTextile,  desc: t.featureTextileDesc },
-    { icon: PanelTop, title: t.featureWindow,   desc: t.featureWindowDesc },
-    { icon: Car,      title: t.featureAuto,     desc: t.featureAutoDesc },
+    { icon: SprayCan, title: t.featureFloor, desc: t.featureFloorDesc },
+    { icon: Flame, title: t.featureKitchen, desc: t.featureKitchenDesc },
+    { icon: Bath, title: t.featureBath, desc: t.featureBathDesc },
+    { icon: Shirt, title: t.featureTextile, desc: t.featureTextileDesc },
+    { icon: PanelTop, title: t.featureWindow, desc: t.featureWindowDesc },
+    { icon: Car, title: t.featureAuto, desc: t.featureAutoDesc },
   ];
 
   const mainStats = [
-    { value: '7 Bar',   label: tSteamer.specPressure, icon: Gauge },
-    { value: '100°C+',  label: t.bacteria,            icon: Thermometer },
-    { value: '~6 Min',  label: tSteamer.specHeatup,   icon: Zap },
-    { value: 'INOX',    label: tSteamer.specMaterial,  icon: Shield },
+    { value: '7 Bar', label: tSteamer.specPressure, icon: Gauge },
+    { value: '100°C+', label: t.bacteria, icon: Thermometer },
+    { value: '~6 Min', label: tSteamer.specHeatup, icon: Zap },
+    { value: 'INOX', label: tSteamer.specMaterial, icon: Shield },
   ];
 
   const extraSpecs = [
-    { icon: FlaskConical, label: tSteamer.specTank,        value: tSteamer.specTankValue },
-    { icon: Cable,        label: tSteamer.specCable,       value: tSteamer.specCableValue },
-    { icon: Weight,       label: tSteamer.specWeight,      value: tSteamer.specWeightValue },
-    { icon: Wind,         label: tSteamer.specAccessories, value: tSteamer.specAccessoriesValue },
+    { icon: FlaskConical, label: tSteamer.specTank, value: tSteamer.specTankValue },
+    { icon: Cable, label: tSteamer.specCable, value: tSteamer.specCableValue },
+    { icon: Weight, label: tSteamer.specWeight, value: tSteamer.specWeightValue },
+    { icon: Wind, label: tSteamer.specAccessories, value: tSteamer.specAccessoriesValue },
   ];
 
   const heroVideosSet = videoIds.slice(0, 6);
@@ -627,8 +598,8 @@ export function HylaSteamerPage() {
               >
                 {[
                   { icon: Shield, text: t.noChemicals },
-                  { icon: Zap,    text: t.professionalGrade },
-                  { icon: Globe,  text: tSteamer.feature3.split('–')[0].trim() },
+                  { icon: Zap, text: t.professionalGrade },
+                  { icon: Globe, text: tSteamer.feature3.split('–')[0].trim() },
                 ].map((item, i) => (
                   <span key={i} className="flex items-center gap-2 text-sm text-white/60">
                     <item.icon className="size-4" />
